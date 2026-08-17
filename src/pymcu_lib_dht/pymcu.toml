@@ -1,0 +1,26 @@
+[library]
+name = "dht"
+summary = "DHT11 / DHT22 / DHT21 temperature & humidity sensor driver"
+license = "MIT"
+repository = "https://github.com/PyMCU/pymcu-lib-dht"
+categories = ["sensor", "environment"]
+
+[library.provides]
+modules = ["dht", "adafruit_dht"]
+
+[library.supports]
+arch = ["avr"]
+chips = []
+layer = "native"
+adapters = ["micropython"]
+
+[library.requires]
+stdlib = ">=0.1.0a5"
+language-level = 1
+
+[library.examples]
+native = "examples/native"
+native_dht22 = "examples/native_dht22"
+micropython = "examples/micropython"
+circuitpython = "examples/circuitpython"
+uart-monitor = "examples/uart-monitor"

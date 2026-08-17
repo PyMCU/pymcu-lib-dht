@@ -1,0 +1,5 @@
+[tool.pymcu]
+board = "arduino_uno"
+frequency = 16000000
+sources = "src"
+entry = "main.py"

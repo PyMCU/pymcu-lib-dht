@@ -1,0 +1,93 @@
+# Three things have to hold before this library can ship: the decoding is right
+# (pytest, on the host), the sources are something the compiler accepts and can
+# build for every architecture the manifest claims (pymcu), and the bit timing
+# still discriminates a 0 from a 1 in the generated code (the emulator).
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pytest
+      # test_timing.py needs a compiler and an emulator, and skips itself
+      # without them; this job is the decode and API-shape half.
+      - run: pytest -q tests/test_dht.py
+
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: astral-sh/setup-uv@v4
+
+      - name: Install the compiler
+        run: uv pip install --system --prerelease=allow "pymcu-compiler[avr]"
+
+      # The library checks landed in the driver after 0.1.0a5, so on an older
+      # compiler they are skipped out loud rather than failing the run: nothing
+      # is wrong with the library, the tooling simply is not published yet.
+      # Remove the guard once pymcu-compiler ships them.
+      - name: Lint the library
+        run: |
+          if pymcu lint --help 2>&1 | grep -q -- "--library"; then
+            pymcu lint --library src/pymcu_lib_dht
+          else
+            echo "skipped: needs a pymcu-compiler with 'lint --library'" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      # Compiles the examples for one chip per architecture and fails when the
+      # result contradicts supports.arch in either direction.
+      - name: Measure it
+        run: |
+          if pymcu index --help >/dev/null 2>&1; then
+            echo "." > libraries.txt
+            pymcu index build --from libraries.txt --venv .check-venv \
+              --output measured.json --strict
+          else
+            echo "skipped: needs a pymcu-compiler with 'index build'" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      # Needs a compiler that discovers libraries through the pymcu.libraries
+      # entry point; on an older one the import cannot resolve, which says
+      # nothing about this library.
+      - name: Build every example
+        run: |
+          if ! pymcu install --help >/dev/null 2>&1; then
+            echo "skipped: needs a pymcu-compiler that discovers libraries" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          uv pip install --system --prerelease=allow -e "$GITHUB_WORKSPACE"
+          for example in src/pymcu_lib_dht/examples/*/; do
+            echo "::group::$example"
+            (cd "$example" && pymcu build)
+            echo "::endgroup::"
+          done
+
+      # The timing checks are what caught a shipped WS2812 bug in this project's
+      # NeoPixel driver, so they run wherever the pieces exist. The emulator is
+      # not on PyPI for every platform; when it is missing the tests skip
+      # themselves rather than failing.
+      - name: Measure the bit timing on the emulator
+        run: |
+          pip install pytest
+          pip install avr8sharp || echo "avr8sharp unavailable; timing tests will skip"
+          pytest -q tests/test_timing.py
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: measured
+          path: measured.json
+          if-no-files-found: ignore

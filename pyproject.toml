@@ -1,0 +1,29 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pymcu-lib-dht"
+version = "0.1.0"
+description = "DHT11 / DHT22 / DHT21 temperature & humidity sensor driver for PyMCU"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [
+    { name = "Iván Montiel Cardona", email = "contact@pymcu.org" }
+]
+keywords = ["pymcu", "dht11", "dht22", "dht21", "am2302", "sensor", "microcontroller"]
+dependencies = ["pymcu-stdlib>=0.1.0a5"]
+
+[project.urls]
+Homepage = "https://pymcu.org"
+Repository = "https://github.com/PyMCU/pymcu-lib-dht"
+
+[project.entry-points."pymcu.libraries"]
+dht = "pymcu_lib_dht"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pymcu_lib_dht"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
