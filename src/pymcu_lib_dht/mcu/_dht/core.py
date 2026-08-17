@@ -11,7 +11,7 @@
 # shape and the bit timing are identical across the family, so `start_low_ms`
 # is a parameter here rather than three copies of this file. What the four
 # data bytes *mean* (integer counts vs. tenths, where the sign bit lives) is a
-# model decision, not a wire decision, and lives in `_dht_decode.py` instead.
+# model decision, not a wire decision, and lives in `_dht/decode.py` instead.
 from pymcu.chips import __CHIP__
 from pymcu.exceptions import CompileError
 from pymcu.types import uint16, uint32, inline
@@ -38,7 +38,7 @@ class Frame:
         # checksum mismatch. Decoding what the bytes mean is the caller's job.
         match __CHIP__.arch:
             case "avr":
-                from _dht_avr import dht_read
+                from _dht.avr import dht_read
                 return dht_read(self._pin, start_low_ms)
             case _:
                 # One string literal, not two adjacent ones: the parser reads a

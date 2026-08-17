@@ -2,14 +2,14 @@
 Enough of PyMCU to import the library under plain CPython.
 
 The modules here target a microcontroller: `pymcu.types` annotations, the
-`__CHIP__` constant and the bit-banging in `_dht_avr.py` all mean something
+`__CHIP__` constant and the bit-banging in `_dht/avr.py` all mean something
 only to the compiler. Stubbing them lets the framing logic -- decode math and
 the three API shapes, the part most likely to have an off-by-one -- be tested
 on a laptop.
 
-`_dht_decode.py` is *not* stubbed: it is plain arithmetic with no chip
+`_dht/decode.py` is *not* stubbed: it is plain arithmetic with no chip
 dependency, so the real file is loaded and exercised for real. Only
-`_dht_core.Frame` is faked, since only it talks to hardware -- its `read()`
+`_dht.core.Frame` is faked, since only it talks to hardware -- its `read()`
 returns a scripted 40-bit frame (or FRAME_ERROR) per test instead of bit-
 banging a pin.
 
@@ -22,8 +22,10 @@ import sys
 from pathlib import Path
 from types import ModuleType
 
-PACKAGE_DIR = Path(__file__).resolve().parents[1] / "src" / "pymcu_lib_dht"
-sys.path.insert(0, str(PACKAGE_DIR))
+# The sources the compiler reads, which is the only part of the package
+# that is Python meant to be read at all.
+SOURCE_DIR = Path(__file__).resolve().parents[1] / "src" / "pymcu_lib_dht" / "mcu"
+sys.path.insert(0, str(SOURCE_DIR))
 
 
 def _install_stubs() -> None:
@@ -70,14 +72,23 @@ def _install_stubs() -> None:
     pymcu.exceptions = exceptions
 
     # The real decoder: plain arithmetic, no hardware, worth testing for real.
-    spec = importlib.util.spec_from_file_location("_dht_decode", PACKAGE_DIR / "_dht_decode.py")
+    # _dht is a package on the device too, so it is one here: the stub core
+    # and the real decoder have to hang off the same parent module or the
+    # library's own `from _dht.core import ...` would not resolve.
+    private = ModuleType("_dht")
+    private.__path__ = [str(SOURCE_DIR / "_dht")]
+    sys.modules["_dht"] = private
+
+    spec = importlib.util.spec_from_file_location(
+        "_dht.decode", SOURCE_DIR / "_dht" / "decode.py")
     decode = importlib.util.module_from_spec(spec)
-    sys.modules["_dht_decode"] = decode
+    sys.modules["_dht.decode"] = decode
     spec.loader.exec_module(decode)
+    private.decode = decode
 
     # The core is the one module that talks to the hardware; under CPython it
     # returns a scripted frame, which is what the tests assert on.
-    core = ModuleType("_dht_core")
+    core = ModuleType("_dht.core")
 
     class Frame:
         next_frame = 0x28000000   # 40.0% RH, 0.0 C -- overridable per test
@@ -94,7 +105,8 @@ def _install_stubs() -> None:
 
     core.Frame = Frame
     core.FRAME_ERROR = Frame.FRAME_ERROR_VALUE
-    sys.modules["_dht_core"] = core
+    sys.modules["_dht.core"] = core
+    private.core = core
 
 
 _install_stubs()

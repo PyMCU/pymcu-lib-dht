@@ -21,7 +21,7 @@ from pathlib import Path
 
 import pytest
 
-PACKAGE_DIR = Path(__file__).resolve().parents[1] / "src" / "pymcu_lib_dht"
+SOURCE_DIR = Path(__file__).resolve().parents[1] / "src" / "pymcu_lib_dht" / "mcu"
 
 DHT11_FRAME = 0x23001800
 DHT22_FRAME = 0x0292010D
@@ -37,7 +37,7 @@ START_LOW_DHT22_MS = 1
 
 def _load(relative_path: str, name: str):
     """Import a layer module by file: two of them are both called `dht`."""
-    spec = importlib.util.spec_from_file_location(name, PACKAGE_DIR / relative_path)
+    spec = importlib.util.spec_from_file_location(name, SOURCE_DIR / relative_path)
     module = importlib.util.module_from_spec(spec)
     sys.modules[name] = module
     spec.loader.exec_module(module)
@@ -61,14 +61,14 @@ def circuitpython():
 
 @pytest.fixture
 def decode():
-    import _dht_decode
+    import _dht.decode as _dht_decode
     return _dht_decode
 
 
 @pytest.fixture(autouse=True)
 def frame():
     """Every test starts from a scripted DHT11 reading it can override."""
-    from _dht_core import Frame
+    from _dht.core import Frame
     Frame.next_frame = DHT11_FRAME
     yield Frame
     Frame.next_frame = DHT11_FRAME

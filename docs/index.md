@@ -21,27 +21,38 @@ compiles down to the same 1-wire bit-banging you'd hand-write in C.
 ## Layout
 
 ```
+examples/                       five compilable projects -- sdist, not wheel
+tests/
 src/pymcu_lib_dht/
-  dht.py                        native API, and MicroPython's own module name
-  adafruit_dht.py                CircuitPython API (adafruit_dht shape)
-  _dht_core.py                   the only file that dispatches on __CHIP__
-  _dht_avr.py                    AVR bit-banging implementation, one routine for the family
-  _dht_decode.py                 per-model byte decoding (DHT11 vs. DHT22), no chip dispatch
-  compat/micropython/dht.py      machine.Pin constructor, same dht-module shape
-  examples/                      five compilable example projects
+  __init__.py                   an ordinary Python package
+  pymcu.toml                    the manifest
+  mcu/                          everything the compiler reads, and only this
+    dht.py                      native API, and MicroPython's own module name
+    adafruit_dht.py             CircuitPython API (adafruit_dht shape)
+    _dht/
+      core.py                   the only file that dispatches on __CHIP__
+      avr.py                    AVR bit-banging, one routine for the family
+      decode.py                 per-model byte decoding, no chip dispatch
+    compat/micropython/dht.py   machine.Pin constructor, same dht-module shape
 ```
 
-`_dht_core.py` is the seam: it is the one file that knows what a chip is. Every public
+Only `mcu/` goes on the compiler's include path, so `dht`, `adafruit_dht` and `_dht`
+are the three top-level names this library claims and nothing else in the wheel is
+reachable from a firmware. The implementation is a package rather than a set of
+`_dht_*.py` modules because that path is flat and shared with every other installed
+library: a bare `core.py` would be a global name, `_dht/core.py` is not.
+
+`_dht/core.py` is the seam: it is the one file that knows what a chip is. Every public
 module — `dht.py`, `adafruit_dht.py`, `compat/micropython/dht.py`, and
-`_dht_decode.py` — is plain Python written against the API it mirrors (or, for
-`_dht_decode.py`, against the raw frame `_dht_core.Frame` already fetched), with zero
+`_dht/decode.py` — is plain Python written against the API it mirrors (or, for
+`_dht/decode.py`, against the raw frame `_dht.core.Frame` already fetched), with zero
 architecture conditionals. That is what lets a MicroPython or CircuitPython script drop
 in unchanged: it was never PyMCU-specific in the first place.
 
 ## Two module names, one driver
 
 `dht` (native and MicroPython) and `adafruit_dht` (CircuitPython) both resolve to the
-same underlying `Frame`/`_dht_decode` pair — see [Getting started](getting-started.md)
+same underlying `Frame`/`_dht.decode` pair — see [Getting started](getting-started.md)
 for which name your project's declared `stdlib` layer resolves, and
 `docs/porting.md` for why `adafruit_dht` needs no `compat/circuitpython/` override
 while `dht` needs one for MicroPython's `machine.Pin` constructor.

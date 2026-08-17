@@ -4,11 +4,11 @@ DHT11, DHT22 (AM2302) and DHT21 (AM2301) all talk over the same single open-drai
 data line, driven from both ends at different times, and all three send the same
 40-bit frame shape: humidity high byte, humidity low byte, temperature high byte,
 temperature low byte, and a checksum. That shared shape is why one AVR routine
-(`_dht_avr.py`) and one exchange (`_dht_core.Frame`) serve the whole family — what
+(`_dht/avr.py`) and one exchange (`_dht.core.Frame`) serve the whole family — what
 differs between the models is the start signal duration, and what the four data
 bytes *mean*.
 
-## The exchange, as `_dht_avr.py` implements it
+## The exchange, as `_dht/avr.py` implements it
 
 1. **Start signal** — the MCU drives the line low, then releases it and lets the
    external pull-up bring it high. How long the MCU holds it low is the one part of
@@ -51,7 +51,7 @@ calibrated by having the AVR drive its own pin HIGH and run the real counting lo
 against it — the loop cannot tell a self-driven HIGH from a sensor-driven one, so this
 measures the loop's actual cycle cost in the compiled binary, which the datasheet's 0/1
 windows (and the counter's own saturation point) are then checked against.
-`HIGH_COUNT_THRESHOLD` itself is read out of `_dht_avr.py`'s source rather than copied,
+`HIGH_COUNT_THRESHOLD` itself is read out of `_dht/avr.py`'s source rather than copied,
 so a future change to the driver can't silently stop agreeing with its own test.
 
 ## Where the models diverge
@@ -76,17 +76,17 @@ degree. `-6.9 C` is `1000 0000 0100 0101` (`0x8045`): sign bit set, magnitude
 15 and negating separately reads that same frame as `+3277.3 C` (`0x8045` interpreted
 as a two's-complement `int16`) — a value that is wrong by four orders of magnitude and
 still parses as a plausible-looking number if nothing downstream range-checks it. See
-`_dht_decode.decode_dht22` and `tests/test_dht.py::TestDecoding` for the code and the
+`_dht.decode.decode_dht22` and `tests/test_dht.py::TestDecoding` for the code and the
 worked datasheet example this guards.
 
 ## Where all three models agree
 
 Everything not in the table above: the ACK sequence, the per-bit LOW/HIGH shape, the
-checksum, and the 40-bit total frame length. `_dht_core.Frame.read(start_low_ms)`
+checksum, and the 40-bit total frame length. `_dht.core.Frame.read(start_low_ms)`
 takes the one thing that varies as a parameter and returns the same raw
 `uint32` (four bytes packed MSB-first) or `FRAME_ERROR` regardless of which model is on
 the other end of the wire — decoding what the bytes mean is left entirely to
-`_dht_decode.py`, which never touches hardware and needs no chip dispatch of its own.
+`_dht/decode.py`, which never touches hardware and needs no chip dispatch of its own.
 
 ## Timing is not cycle-exact
 

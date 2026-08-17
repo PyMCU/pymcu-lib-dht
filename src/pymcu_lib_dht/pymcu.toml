@@ -4,9 +4,10 @@ summary = "DHT11 / DHT22 / DHT21 temperature & humidity sensor driver"
 license = "MIT"
 repository = "https://github.com/PyMCU/pymcu-lib-dht"
 categories = ["sensor", "environment"]
+sources = "mcu"
 
 [library.provides]
-modules = ["dht", "adafruit_dht"]
+modules = ["dht", "adafruit_dht", "_dht"]
 
 [library.supports]
 arch = ["avr"]

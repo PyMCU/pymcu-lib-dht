@@ -19,7 +19,7 @@ on the datasheet differs, and a driver cannot act on that.
 Almost nothing. All five use the same single-wire exchange: the host pulls the
 line low to start, the sensor acknowledges, and then sends 40 bits where a bit's
 value is the width of its high pulse (~26–28 µs for a zero, ~70 µs for a one).
-`_dht_avr.py` implements that once.
+`_dht/avr.py` implements that once.
 
 Two things differ, and both are handled outside the timing code:
 
@@ -29,7 +29,7 @@ wrong class is a real mistake rather than a cosmetic one — an 18 ms start is o
 of spec for a DHT22, even though one will often still answer on the bench.
 
 **What the four data bytes mean.** Not a wire difference at all, which is why it
-lives in `_dht_decode.py` with no chip dispatch in sight:
+lives in `_dht/decode.py` with no chip dispatch in sight:
 
 - **DHT11** sends integer counts. Byte 0 is %RH, byte 2 is °C, and the two
   decimal bytes are zero on genuine parts. It cannot report a fraction and it

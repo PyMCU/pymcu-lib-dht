@@ -19,8 +19,8 @@
 # measure() the way real MicroPython code checks the raised OSError.
 from pymcu.types import uint8, uint16, int16, uint32, inline
 
-from _dht_core import Frame, FRAME_ERROR
-from _dht_decode import decode_dht11, decode_dht22
+from _dht.core import Frame, FRAME_ERROR
+from _dht.decode import decode_dht11, decode_dht22
 
 _START_LOW_DHT11_MS: uint16 = 18
 _START_LOW_DHT22_MS: uint16 = 1

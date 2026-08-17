@@ -1,9 +1,9 @@
 # Porting to a new architecture
 
-`_dht_core.py` is the only file that dispatches on `__CHIP__`. Adding a new
+`_dht/core.py` is the only file that dispatches on `__CHIP__`. Adding a new
 architecture means adding one `case` to its `match __CHIP__.arch:` and writing the
 module that case imports from — nothing in `dht.py`, `adafruit_dht.py`,
-`compat/micropython/dht.py`, or `_dht_decode.py` changes, since none of them know what
+`compat/micropython/dht.py`, or `_dht/decode.py` changes, since none of them know what
 a chip is.
 
 ## What to write
@@ -15,7 +15,7 @@ def dht_read(pin_name: str, start_low_ms: uint16) -> uint32:
     ...
 ```
 
-Its contract, taken from `_dht_avr.py`:
+Its contract, taken from `_dht/avr.py`:
 
 - `pin_name` is whatever string your architecture's GPIO HAL uses to name a pin (on
   AVR, register-relative names like `"PD2"`).
@@ -29,18 +29,18 @@ Its contract, taken from `_dht_avr.py`:
   checksum mismatch. See [Accuracy and limits](accuracy.md#error-reporting) for why the
   three don't need to be distinguished.
 - What the four bytes *mean* — plain integer counts, or 16-bit tenths with a sign bit —
-  is not this function's concern. That decoding lives in `_dht_decode.py`, which is
+  is not this function's concern. That decoding lives in `_dht/decode.py`, which is
   architecture-independent and needs no changes for a new port.
 - The whole exchange (~20 ms worst case) happens inside this one call — there is
   no async/interrupt-driven variant to support, since a caller who does not want to
   block for that long should not be calling this at all.
 
-## Wiring it into `_dht_core.py`
+## Wiring it into `_dht/core.py`
 
 ```python
 match __CHIP__.arch:
     case "avr":
-        from _dht_avr import dht_read
+        from _dht.avr import dht_read
         return dht_read(self._pin, start_low_ms)
     case "your_arch":
         from _dht_your_arch import dht_read
@@ -73,7 +73,7 @@ add one only where the API actually differs.
 
 Add the new arch to `supports.arch` in `pymcu.toml`, and bump the distribution
 version (the manifest itself carries no version — see `pymcu.toml`'s header comment
-in `_dht_core.py`'s sibling files for why).
+in `_dht/core.py`'s sibling files for why).
 
 ## Verify
 

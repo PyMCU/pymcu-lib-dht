@@ -22,7 +22,7 @@ order — this page applies to the whole family.
 
 - `DATA` can be any of `PD2`-`PD7` — pass the pin name string to `DHT11(...)`,
   `DHT22(...)` or `DHT21(...)`. `PD0`/`PD1` are reserved for UART (`RX`/`TX`) and are
-  not accepted by `_dht_avr.py`.
+  not accepted by `_dht/avr.py`.
 - A three-pin breakout board (labelled `VCC`, `OUT`/`DATA`/`SIG`, `GND`) already has
   the pull-up resistor on the board. A bare four-pin sensor (`VDD`, `DATA`, `NC`,
   `GND`) needs the external 4.7 kOhm resistor shown above.
@@ -31,7 +31,7 @@ order — this page applies to the whole family.
 
 ## Pin choice and the driver's dispatch
 
-`_dht_avr.py` resolves the pin name to a register/bit pair with a chain of
+`_dht/avr.py` resolves the pin name to a register/bit pair with a chain of
 `if pin_name == "PDn":` comparisons — the same pattern the stdlib GPIO HAL uses for
 `pin_set_mode`/`pin_high`. The compiler constant-folds this at compile time: only the
 branch matching the pin you actually passed survives in the compiled firmware, so

@@ -57,7 +57,7 @@ def _pd_read(bit: uint8, start_low_ms: uint16) -> uint32:
 
     # 4. Read 5 bytes: two data words (humidity, temperature) and a checksum.
     #    What the bits inside b0..b3 mean (plain counts vs. tenths, where a
-    #    sign lives) is decided in _dht_decode.py, not here.
+    #    sign lives) is decided in _dht/decode.py, not here.
     b0: uint8 = _pd_byte(mask)
     b1: uint8 = _pd_byte(mask)
     b2: uint8 = _pd_byte(mask)

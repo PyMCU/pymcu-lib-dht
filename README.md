@@ -49,9 +49,9 @@ print(sensor.temperature, sensor.humidity)   # float, matching upstream
 
 None of those files contains a single `match __CHIP__.arch`: the layer adapters are
 plain Python written against each API as it is documented upstream. Everything that has
-to know about a chip lives in one private module, `_dht_core`, and the compiler folds
+to know about a chip lives in one private module, `_dht.core`, and the compiler folds
 it away; everything that has to know what a byte *means* for a given sensor model lives
-in `_dht_decode`, which needs no chip dispatch of its own.
+in `_dht.decode`, which needs no chip dispatch of its own.
 
 ## DHT11 vs. DHT22 vs. DHT21
 
@@ -89,8 +89,8 @@ Timing is measured on the AVR emulator rather than assumed — see
 `tests/test_timing.py` for the start-signal and bit-decode-threshold checks.
 
 Other architectures raise a compile-time error rather than returning something that
-looks like it worked. Ports are welcome: `_dht_avr.py` is the whole contract, and
-`_dht_decode.py` (the per-model byte decoding) needs no changes for a new port.
+looks like it worked. Ports are welcome: `_dht/avr.py` is the whole contract, and
+`_dht/decode.py` (the per-model byte decoding) needs no changes for a new port.
 
 See `docs/` for the wire protocol, wiring diagrams, accuracy limits, sensor comparison,
 and a porting guide for a new architecture.

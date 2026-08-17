@@ -4,7 +4,7 @@ The parts of this driver that a datasheet, not a unit test, has to agree with.
 The DHT family has no clock line. A bit is a zero or a one purely by how long
 the sensor holds the line high -- ~26-28 us against ~70 us -- and this driver
 tells them apart by counting loop iterations, not by timing them. That makes
-the threshold in `_dht_avr.py` a number about generated code: change the loop
+the threshold in `_dht/avr.py` a number about generated code: change the loop
 body, or the optimiser, and 64 can drift to one side of a real bit without a
 single test noticing. A sensor then reads 0% RH for ever, and the flash figure
 still looks perfectly healthy. The NeoPixel driver in this project shipped
@@ -59,10 +59,10 @@ def _driver_constant(name: str) -> int:
     """
     source = (
         Path(__file__).resolve().parents[1]
-        / "src" / "pymcu_lib_dht" / "_dht_avr.py"
+        / "src" / "pymcu_lib_dht" / "mcu" / "_dht" / "avr.py"
     ).read_text()
     match = re.search(rf"^{name}: *\w+ *= *(\d+)", source, re.MULTILINE)
-    assert match, f"{name} is not defined in _dht_avr.py"
+    assert match, f"{name} is not defined in _dht/avr.py"
     return int(match.group(1))
 
 
@@ -86,7 +86,7 @@ entry = "main.py"
 COUNT_PROBE = """\
 from pymcu.types import uint8, asm
 from pymcu.chips.atmega328p import DDRB, PORTB, DDRD, PORTD
-from _dht_avr import _pd_high_count
+from _dht.avr import _pd_high_count
 
 
 def main():
@@ -111,7 +111,7 @@ def main():
 TIMEOUT_PROBE = """\
 from pymcu.types import uint8, asm
 from pymcu.chips.atmega328p import DDRB, PORTB
-from _dht_avr import _pd_wait
+from _dht.avr import _pd_wait
 
 
 def main():
@@ -132,7 +132,7 @@ def main():
 # the missing sensor, which is fine -- the start pulse is already over.
 START_PROBE = """\
 from pymcu.types import uint32, asm
-from _dht_avr import dht_read
+from _dht.avr import dht_read
 
 
 def main():
@@ -152,7 +152,7 @@ def _pymcu() -> str | None:
 
     A `pymcu` earlier on PATH (a globally pinned release, say) would build
     against a different library install than the editable one under test --
-    silently exercising the wrong `_dht_avr.py`. The venv running pytest is
+    silently exercising the wrong `_dht/avr.py`. The venv running pytest is
     the one `uv pip install -e` was pointed at, so its own bin/ is trusted
     first; a bare `shutil.which` is the fallback for a pymcu run outside a
     venv layout.

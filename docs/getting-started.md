@@ -88,7 +88,7 @@ signature is the entire point of this module.
 ## Examples
 
 Five complete example projects ship inside the package, under
-`src/pymcu_lib_dht/examples/`:
+`examples/`:
 
 | Example          | API           | Sensor | What it does                                      |
 |------------------|---------------|--------|----------------------------------------------------|
@@ -102,6 +102,6 @@ Each is a real PyMCU project (its own `pyproject.toml` + `src/main.py`) and buil
 its own:
 
 ```bash
-cd src/pymcu_lib_dht/examples/native
+cd examples/native
 pymcu build
 ```

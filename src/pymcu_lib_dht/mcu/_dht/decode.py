@@ -1,6 +1,6 @@
 # Model-specific decoding of a DHT-family 40-bit frame.
 #
-# `_dht_core.Frame.read()` hands back four raw data bytes packed into one
+# `_dht.core.Frame.read()` hands back four raw data bytes packed into one
 # uint32 (FRAME_ERROR already ruled out by the caller) -- what those bytes
 # *mean* is a per-model decision, not a wire decision, which is why this file
 # has no `match __CHIP__.arch` and never will: it is plain arithmetic on a
