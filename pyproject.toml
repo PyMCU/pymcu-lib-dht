@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pymcu-lib-dht"
-version = "0.1.0"
+version = "0.1.1"
 description = "DHT11 / DHT22 / DHT21 temperature & humidity sensor driver for PyMCU"
 readme = "README.md"
 requires-python = ">=3.11"
