@@ -146,6 +146,28 @@ def main():
         pass
 """
 
+# And again with globals named after the driver's *locals* rather than its
+# parameters, which is the half that has to keep working -- it is what makes
+# the list of names in the README short enough to be worth printing.
+SHADOWED_LOCALS_PROBE = """\
+from pymcu.types import uint8, uint32, asm
+from _dht.avr import dht_read
+
+count: uint8 = 99
+chksum: uint8 = 5
+expected: uint8 = 4
+timeout: uint8 = 1
+result: uint8 = 2
+
+
+def main():
+    asm("CLI")
+    frame: uint32 = dht_read("PD2", {start_low_ms})
+    asm("SEI")
+    while True:
+        pass
+"""
+
 PORT_B, PORT_D = 0, 2
 
 
@@ -284,9 +306,11 @@ class TestStartPulse:
 
     @pytest.mark.xfail(
         strict=True,
-        reason="compiler: a module-level global takes over a parameter of the "
-               "same name, so a firmware that happens to define `start_low_ms` "
-               "silently changes the start pulse this driver asks for",
+        reason="compiler: a module-level global still takes over a parameter of "
+               "a plain (non-@inline) function, so a firmware that happens to "
+               "define `start_low_ms` silently changes the start pulse this "
+               "driver asks for. The @inline half of this was fixed in "
+               "0.1.0a10; `_pd_read` is not @inline",
     )
     def test_a_global_of_the_users_does_not_take_over_the_start_pulse(
         self, tmp_path_factory, emulator
@@ -295,18 +319,54 @@ class TestStartPulse:
         Nothing in the firmware below refers to the driver's parameter.
 
         It defines a global called `start_low_ms` and asks for an 18 ms start,
-        and the line is held low for 250. The name is not the point -- the same
-        happens for `mask`, `count`, `frame` and every other parameter in this
-        driver, in a single module and across two, on the published 0.1.0a9 as
-        well as on the compiler this release is built against. It is a compiler
-        bug, not something to route around by renaming: a library cannot pick
-        names nobody will ever use. Marked strict, so it fails the day the
-        compiler stops doing this and this note has to come out.
+        and the line is held low for 250.
+
+        Only one shape does this, and it is worth being exact about which. A
+        parameter of a plain `def` loses to a module global of the same name; a
+        parameter of an `@inline` def does not, since 0.1.0a10; and a *local*
+        of either never did. So the reach into this driver is the parameters of
+        the three functions that are not `@inline` -- `mask` in `_pd_byte` and
+        `_pd_high_count`, and `bit` and `start_low_ms` in `_pd_read`. A global
+        named `count`, `chksum` or `expected` is harmless, because those are
+        locals; measured, not reasoned about.
+
+        `bit` is the worse one and does not show up here: a global `bit = 7`
+        makes `_pd_read` build its mask for PD7, so the driver bit-bangs a pin
+        the user never named and PD2 stays idle.
+
+        It is a compiler bug, not something to route around by renaming -- a
+        library cannot pick names nobody will ever use. Marked strict, so it
+        fails the day the compiler stops doing this and these notes have to
+        come out.
         """
         hex_text = _build(
             tmp_path_factory,
             "start_shadowed",
             SHADOWED_START_PROBE.format(start_low_ms=START_LOW_DHT11_MS),
+        )
+        cycles = _driven_low_cycles(hex_text, 2)
+        assert cycles is not None, "the line was never driven low"
+        measured_ms = cycles * CYCLE_NS / 1_000_000
+        assert measured_ms == pytest.approx(START_LOW_DHT11_MS, rel=0.1), (
+            f"start pulse measured {measured_ms:.2f} ms, asked for "
+            f"{START_LOW_DHT11_MS} ms"
+        )
+
+    def test_a_global_named_after_one_of_the_drivers_locals_is_harmless(
+        self, tmp_path_factory, emulator
+    ):
+        """
+        The other side of the line the xfail above draws.
+
+        `count`, `chksum`, `expected`, `timeout` and `result` are locals inside
+        the driver, not parameters, and a firmware is free to use those names.
+        This is what keeps the warning in the README down to three names; if it
+        ever stops holding, that list is wrong and this goes red.
+        """
+        hex_text = _build(
+            tmp_path_factory,
+            "start_locals",
+            SHADOWED_LOCALS_PROBE.format(start_low_ms=START_LOW_DHT11_MS),
         )
         cycles = _driven_low_cycles(hex_text, 2)
         assert cycles is not None, "the line was never driven low"

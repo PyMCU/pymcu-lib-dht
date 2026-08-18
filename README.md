@@ -93,11 +93,13 @@ looks like it worked. Ports are welcome: `_dht/avr.py` is the whole contract, an
 `_dht/decode.py` (the per-model byte decoding) needs no changes for a new port.
 
 One caveat that is the compiler's rather than this driver's: a **module-level global
-in your firmware whose name matches a parameter inside a library wins over the
-parameter**, with no diagnostic. A firmware that declares `start_low_ms` at module
-level changes the start pulse this driver sends. See
-[docs/getting-started.md](docs/getting-started.md#one-name-to-avoid-at-module-level)
-for the full list of names and the measurement.
+in your firmware whose name matches a parameter of a plain (non-`@inline`) library
+function wins over the parameter**, with no diagnostic. For this driver that is three
+names — `mask`, `bit` and `start_low_ms`. A global `start_low_ms = 250` changes the
+start pulse; a global `bit = 7` makes the driver bit-bang PD7 whatever pin you asked
+for. Anything else is fine. See
+[docs/getting-started.md](docs/getting-started.md#three-names-to-avoid-at-module-level)
+for the measurement.
 
 See `docs/` for the wire protocol, wiring diagrams, accuracy limits, sensor comparison,
 and a porting guide for a new architecture.

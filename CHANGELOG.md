@@ -45,14 +45,17 @@ hash it was in 0.1.0.
   at the caller's own line even when the call sits under runtime control flow,
   which is new in the 0.1.0a10 compiler. Ports are welcome: `_dht/avr.py` is the
   whole contract and `_dht/decode.py` needs no changes for one.
-- **A module-level global can take over a parameter of the same name.** A firmware
-  that declares `start_low_ms`, `mask`, `bit`, `count`, `frame`, `timeout`,
-  `expected` or `chksum` at module level silently changes what this driver does — a
-  global `start_low_ms = 250` drives the start pulse for 250 ms instead of 18.
-  This is a compiler bug, present in the published 0.1.0a9 too, and not one a
-  library can protect itself from by choosing different names; it is pinned as a
-  strict xfail in `tests/test_timing.py` so that it fails the day it is fixed. See
-  [docs/getting-started.md](docs/getting-started.md#one-name-to-avoid-at-module-level).
+- **A module-level global can still take over a parameter of a plain function.**
+  0.1.0a10 fixed this for `@inline` parameters, which is most of this driver. It is
+  still open for parameters of a plain `def`, which leaves three names exposed here:
+  a firmware declaring `start_low_ms` drives the start pulse for that many
+  milliseconds instead of 18, and one declaring `bit` (or `mask`) makes the driver
+  bit-bang a pin nobody asked for. Locals are unaffected either way — a global named
+  `count`, `chksum` or `expected` changes nothing, and that boundary is measured
+  rather than assumed. It is a compiler bug and not one a library can protect itself
+  from by choosing different names, so it is pinned as a strict xfail in
+  `tests/test_timing.py` and will fail the day it is fixed. See
+  [docs/getting-started.md](docs/getting-started.md#three-names-to-avoid-at-module-level).
 - **Pins PD2–PD7 only**, and the AM2320 family is a different (I²C) part despite
   the name.
 
