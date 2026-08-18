@@ -150,7 +150,7 @@ class TestMicroPython:
 
     def test_takes_a_machine_pin(self, micropython):
         sensor = micropython.DHT11(_Pin("PD2"))
-        assert sensor._frame.pin == "PD2"
+        assert sensor._frame._pin == "PD2"
 
     def test_measure_then_read(self, micropython):
         sensor = micropython.DHT11(_Pin("PD2"))

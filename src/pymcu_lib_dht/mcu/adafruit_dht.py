@@ -24,13 +24,10 @@
 # so nothing shadows this module, and `board.Dn` constants are plain pin-name
 # strings -- the same shape the constructor already takes. A copy under
 # compat/ would only be a second place to fix the same bug.
-from pymcu.types import uint8, uint16, uint32, inline
+from pymcu.types import uint8, uint32, inline
 
-from _dht.core import Frame, FRAME_ERROR
+from _dht.core import Frame, FRAME_ERROR, START_LOW_DHT11_MS, START_LOW_DHT22_MS
 from _dht.decode import decode_dht11, decode_dht22
-
-_START_LOW_DHT11_MS: uint16 = 18
-_START_LOW_DHT22_MS: uint16 = 1
 
 
 class DHT11:
@@ -42,7 +39,7 @@ class DHT11:
 
     @property
     def temperature(self) -> float:
-        frame: uint32 = self._frame.read(_START_LOW_DHT11_MS)
+        frame: uint32 = self._frame.read(START_LOW_DHT11_MS)
         if frame == FRAME_ERROR:
             raise ValueError("DHT11 checksum did not validate, try again")
         humidity, temperature = decode_dht11(frame)
@@ -50,7 +47,7 @@ class DHT11:
 
     @property
     def humidity(self) -> float:
-        frame: uint32 = self._frame.read(_START_LOW_DHT11_MS)
+        frame: uint32 = self._frame.read(START_LOW_DHT11_MS)
         if frame == FRAME_ERROR:
             raise ValueError("DHT11 checksum did not validate, try again")
         humidity, temperature = decode_dht11(frame)
@@ -70,7 +67,7 @@ class DHT22:
 
     @property
     def temperature(self) -> float:
-        frame: uint32 = self._frame.read(_START_LOW_DHT22_MS)
+        frame: uint32 = self._frame.read(START_LOW_DHT22_MS)
         if frame == FRAME_ERROR:
             raise ValueError("DHT22 checksum did not validate, try again")
         humidity, temperature = decode_dht22(frame)
@@ -78,7 +75,7 @@ class DHT22:
 
     @property
     def humidity(self) -> float:
-        frame: uint32 = self._frame.read(_START_LOW_DHT22_MS)
+        frame: uint32 = self._frame.read(START_LOW_DHT22_MS)
         if frame == FRAME_ERROR:
             raise ValueError("DHT22 checksum did not validate, try again")
         humidity, temperature = decode_dht22(frame)

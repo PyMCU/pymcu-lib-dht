@@ -23,6 +23,14 @@ from pymcu.types import uint16, uint32, inline
 # this is safe as a sentinel with no ambiguity against real data.
 FRAME_ERROR: uint32 = 0xFFFFFFFF
 
+# How long the host holds the line low to open an exchange -- the one thing
+# that differs between the models on the wire, so it lives beside `read()`
+# rather than being restated in each of the three API layers. An 18 ms start
+# on a DHT22 is out of spec but usually still answers on the bench, which is
+# exactly the kind of divergence a copy in three files produces.
+START_LOW_DHT11_MS: uint16 = 18
+START_LOW_DHT22_MS: uint16 = 1
+
 
 class Frame:
     """A pin driving a DHT-family sensor, one raw 40-bit reading at a time."""

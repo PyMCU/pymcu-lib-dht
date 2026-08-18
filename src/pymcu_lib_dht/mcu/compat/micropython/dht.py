@@ -19,11 +19,8 @@
 # measure() the way real MicroPython code checks the raised OSError.
 from pymcu.types import uint8, uint16, int16, uint32, inline
 
-from _dht.core import Frame, FRAME_ERROR
+from _dht.core import Frame, FRAME_ERROR, START_LOW_DHT11_MS, START_LOW_DHT22_MS
 from _dht.decode import decode_dht11, decode_dht22
-
-_START_LOW_DHT11_MS: uint16 = 18
-_START_LOW_DHT22_MS: uint16 = 1
 
 
 class DHT11:
@@ -40,7 +37,7 @@ class DHT11:
 
     @inline
     def measure(self):
-        frame: uint32 = self._frame.read(_START_LOW_DHT11_MS)
+        frame: uint32 = self._frame.read(START_LOW_DHT11_MS)
         if frame == FRAME_ERROR:
             self.failed = 1
             return
@@ -70,7 +67,7 @@ class DHT22:
 
     @inline
     def measure(self):
-        frame: uint32 = self._frame.read(_START_LOW_DHT22_MS)
+        frame: uint32 = self._frame.read(START_LOW_DHT22_MS)
         if frame == FRAME_ERROR:
             self.failed = 1
             return

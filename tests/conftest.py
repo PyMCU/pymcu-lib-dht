@@ -7,11 +7,13 @@ only to the compiler. Stubbing them lets the framing logic -- decode math and
 the three API shapes, the part most likely to have an off-by-one -- be tested
 on a laptop.
 
-`_dht/decode.py` is *not* stubbed: it is plain arithmetic with no chip
-dependency, so the real file is loaded and exercised for real. Only
-`_dht.core.Frame` is faked, since only it talks to hardware -- its `read()`
-returns a scripted 40-bit frame (or FRAME_ERROR) per test instead of bit-
-banging a pin.
+Only what talks to a pin is faked, which comes to a single method. Both
+`_dht/decode.py` and `_dht/core.py` are the real files: the first is plain
+arithmetic with no chip dependency, and the second is the sentinel, the two
+start-signal durations and a `Frame` whose `read()` is swapped for one that
+returns a scripted 40-bit frame (or FRAME_ERROR) per test. The architecture
+dispatch that method normally performs is what hides the chip imports, so
+never calling the real one is enough to keep this runnable on a laptop.
 
 What the compiler does with these files is verified separately, by compiling
 the examples for real.
@@ -86,27 +88,27 @@ def _install_stubs() -> None:
     spec.loader.exec_module(decode)
     private.decode = decode
 
-    # The core is the one module that talks to the hardware; under CPython it
-    # returns a scripted frame, which is what the tests assert on.
-    core = ModuleType("_dht.core")
-
-    class Frame:
-        next_frame = 0x28000000   # 40.0% RH, 0.0 C -- overridable per test
-        FRAME_ERROR_VALUE = 0xFFFFFFFF
-
-        def __init__(self, pin):
-            self.pin = pin
-            self.reads = 0
-
-        def read(self, start_low_ms):
-            self.reads += 1
-            self.last_start_low_ms = start_low_ms
-            return Frame.next_frame
-
-    core.Frame = Frame
-    core.FRAME_ERROR = Frame.FRAME_ERROR_VALUE
+    # The core is loaded for real as well, and then has exactly one method
+    # replaced. It owns the sentinel and the two start-signal durations, and a
+    # stub that restated them would agree with itself no matter what the driver
+    # says -- the whole point of the start-signal test is that 18 ms and 1 ms
+    # cannot collapse into one value. Only `read()` talks to a pin, and only
+    # `read()` is scripted; the architecture dispatch inside it is never
+    # reached, so the chip imports it hides behind never run.
+    spec = importlib.util.spec_from_file_location(
+        "_dht.core", SOURCE_DIR / "_dht" / "core.py")
+    core = importlib.util.module_from_spec(spec)
     sys.modules["_dht.core"] = core
+    spec.loader.exec_module(core)
     private.core = core
+
+    def read(self, start_low_ms):
+        self.last_start_low_ms = start_low_ms
+        return core.Frame.next_frame
+
+    core.Frame.read = read
+    core.Frame.next_frame = 0x28000000   # 40.0% RH, 0.0 C -- set per test
+    core.Frame.FRAME_ERROR_VALUE = core.FRAME_ERROR
 
 
 _install_stubs()
