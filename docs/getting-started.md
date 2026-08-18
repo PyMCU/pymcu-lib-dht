@@ -85,10 +85,24 @@ properties, reading either one triggers a fresh measurement, and both return `fl
 the one place in this library that does, because matching `adafruit_dht`'s real
 signature is the entire point of this module.
 
+## One name to avoid at module level
+
+Until the compiler is fixed, a module-level global in your firmware whose name
+matches a parameter inside a library silently wins over the parameter. A firmware
+that declares `start_low_ms`, `mask`, `bit`, `count`, `frame`, `timeout`,
+`expected` or `chksum` at module level changes what this driver does with no
+diagnostic: a global `start_low_ms = 250` makes the start pulse 250 ms instead of
+the 18 ms the DHT11 needs, measured on the emulator. Locals inside your functions
+are fine, and so is any other name.
+
+This is a compiler bug rather than something the library can protect itself from —
+no set of parameter names is safe from every firmware — so it is pinned as a strict
+xfail in `tests/test_timing.py` and will be removed here once it is fixed.
+
 ## Examples
 
-Five complete example projects ship inside the package, under
-`examples/`:
+Five complete example projects live in the repository (and travel in the sdist,
+not the wheel), under `examples/`:
 
 | Example          | API           | Sensor | What it does                                      |
 |------------------|---------------|--------|----------------------------------------------------|

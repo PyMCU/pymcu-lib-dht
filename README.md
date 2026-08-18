@@ -92,6 +92,13 @@ Other architectures raise a compile-time error rather than returning something t
 looks like it worked. Ports are welcome: `_dht/avr.py` is the whole contract, and
 `_dht/decode.py` (the per-model byte decoding) needs no changes for a new port.
 
+One caveat that is the compiler's rather than this driver's: a **module-level global
+in your firmware whose name matches a parameter inside a library wins over the
+parameter**, with no diagnostic. A firmware that declares `start_low_ms` at module
+level changes the start pulse this driver sends. See
+[docs/getting-started.md](docs/getting-started.md#one-name-to-avoid-at-module-level)
+for the full list of names and the measurement.
+
 See `docs/` for the wire protocol, wiring diagrams, accuracy limits, sensor comparison,
 and a porting guide for a new architecture.
 
