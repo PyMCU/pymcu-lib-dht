@@ -11,8 +11,11 @@
 #
 # humidity()/temperature() return tenths as a signed int, not a float (see
 # docs/accuracy.md) -- printing one decimal digit is a divmod, not a float
-# format, and the sign needs handling by hand since the whole/tenths split
-# below is always computed on an unsigned magnitude.
+# format. The minus sign goes out on its own `print` because the whole/tenths
+# split below is computed on an unsigned magnitude, and because PyMCU has no
+# runtime string objects: `sign = "-"` would be a `str` variable, which is not
+# something the compiler can hold (see the language limitations page). The
+# f-strings here are streamed straight to the UART, one write per piece.
 from pymcu.time import delay_ms
 from dht import DHT22
 
@@ -28,19 +31,12 @@ def main():
             print("read error")
         else:
             h = sensor.humidity()
-            h_whole = h // 10
-            h_frac = h % 10
+            print(f"H: {h // 10}.{h % 10}  T: ", end="")
 
             t = sensor.temperature()
             if t < 0:
                 t = -t
-                t_sign = "-"
-            else:
-                t_sign = ""
-            t_whole = t // 10
-            t_frac = t % 10
-
-            print("H: ", h_whole, ".", h_frac,
-                  "  T: ", t_sign, t_whole, ".", t_frac, sep="")
+                print("-", end="")
+            print(f"{t // 10}.{t % 10}")
 
         delay_ms(2000)

@@ -28,12 +28,11 @@ a skip: a library that no longer builds must not pass its own suite quietly.
 """
 
 import re
-import shutil
-import subprocess
-import sys
 from pathlib import Path
 
 import pytest
+
+from _probe import build as _build
 
 CYCLE_NS = 62.5                 # 16 MHz
 
@@ -67,19 +66,6 @@ def _driver_constant(name: str) -> int:
 
 
 HIGH_COUNT_THRESHOLD = _driver_constant("HIGH_COUNT_THRESHOLD")
-
-PROJECT = """\
-[project]
-name = "dht-timing-probe"
-version = "0.1.0"
-dependencies = []
-
-[tool.pymcu]
-target = "atmega328p"
-frequency = 16000000
-sources = "src"
-entry = "main.py"
-"""
 
 # PD2 is driven high by the MCU itself, so PIND reads 1 and the counting loop
 # runs its full 255 iterations. PB5 brackets the region being measured.
@@ -144,44 +130,6 @@ def main():
 """
 
 PORT_B, PORT_D = 0, 2
-
-
-def _pymcu() -> str | None:
-    """
-    Prefer the pymcu that lives beside the interpreter running this test.
-
-    A `pymcu` earlier on PATH (a globally pinned release, say) would build
-    against a different library install than the editable one under test --
-    silently exercising the wrong `_dht/avr.py`. The venv running pytest is
-    the one `uv pip install -e` was pointed at, so its own bin/ is trusted
-    first; a bare `shutil.which` is the fallback for a pymcu run outside a
-    venv layout.
-    """
-    beside_interpreter = Path(sys.executable).parent / "pymcu"
-    if beside_interpreter.exists():
-        return str(beside_interpreter)
-    return shutil.which("pymcu")
-
-
-def _build(tmp_path_factory, name: str, source: str):
-    pymcu = _pymcu()
-    if pymcu is None:
-        pytest.skip("needs a pymcu compiler on PATH")
-
-    project = tmp_path_factory.mktemp(name)
-    (project / "src").mkdir()
-    (project / "pyproject.toml").write_text(PROJECT)
-    (project / "src" / "main.py").write_text(source)
-
-    build = subprocess.run([pymcu, "build"], cwd=project, capture_output=True, text=True)
-    if build.returncode != 0:
-        output = (build.stdout + build.stderr).strip().splitlines()
-        pytest.fail(f"the {name} probe did not build:\n" + "\n".join(output[-8:]))
-
-    firmware = project / "dist" / "firmware.hex"
-    if not firmware.exists():
-        pytest.fail(f"no firmware.hex produced for {name}")
-    return firmware.read_text()
 
 
 def _simulate(hex_text: str):

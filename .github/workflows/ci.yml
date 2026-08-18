@@ -85,14 +85,16 @@ jobs:
           done
 
       # The timing checks are what caught a shipped WS2812 bug in this project's
-      # NeoPixel driver, so they run wherever the pieces exist. The emulator is
-      # not on PyPI for every platform; when it is missing the tests skip
-      # themselves rather than failing.
-      - name: Measure the bit timing on the emulator
+      # NeoPixel driver, so they run wherever the pieces exist, and the UART
+      # checks are here for the same reason: the monitor example printed the
+      # character code of its minus sign for a while and every job stayed
+      # green. The emulator is not on PyPI for every platform; when it is
+      # missing the tests skip themselves rather than failing.
+      - name: Measure the generated code on the emulator
         run: |
           pip install pytest
-          pip install avr8sharp || echo "avr8sharp unavailable; timing tests will skip"
-          pytest -q tests/test_timing.py
+          pip install avr8sharp || echo "avr8sharp unavailable; emulator tests will skip"
+          pytest -q tests/test_timing.py tests/test_uart.py
 
       - uses: actions/upload-artifact@v4
         if: always()
