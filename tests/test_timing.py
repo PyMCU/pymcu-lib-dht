@@ -129,6 +129,23 @@ def main():
         pass
 """
 
+# The same probe, plus one global in the firmware that happens to share a name
+# with a parameter inside the driver. See the xfail below for what that does.
+SHADOWED_START_PROBE = """\
+from pymcu.types import uint16, uint32, asm
+from _dht.avr import dht_read
+
+start_low_ms: uint16 = 250
+
+
+def main():
+    asm("CLI")
+    frame: uint32 = dht_read("PD2", {start_low_ms})
+    asm("SEI")
+    while True:
+        pass
+"""
+
 PORT_B, PORT_D = 0, 2
 
 
@@ -263,4 +280,38 @@ class TestStartPulse:
         assert measured_ms == pytest.approx(requested_ms, rel=0.1), (
             f"{name}: start pulse measured {measured_ms:.2f} ms, "
             f"asked for {requested_ms} ms"
+        )
+
+    @pytest.mark.xfail(
+        strict=True,
+        reason="compiler: a module-level global takes over a parameter of the "
+               "same name, so a firmware that happens to define `start_low_ms` "
+               "silently changes the start pulse this driver asks for",
+    )
+    def test_a_global_of_the_users_does_not_take_over_the_start_pulse(
+        self, tmp_path_factory, emulator
+    ):
+        """
+        Nothing in the firmware below refers to the driver's parameter.
+
+        It defines a global called `start_low_ms` and asks for an 18 ms start,
+        and the line is held low for 250. The name is not the point -- the same
+        happens for `mask`, `count`, `frame` and every other parameter in this
+        driver, in a single module and across two, on the published 0.1.0a9 as
+        well as on the compiler this release is built against. It is a compiler
+        bug, not something to route around by renaming: a library cannot pick
+        names nobody will ever use. Marked strict, so it fails the day the
+        compiler stops doing this and this note has to come out.
+        """
+        hex_text = _build(
+            tmp_path_factory,
+            "start_shadowed",
+            SHADOWED_START_PROBE.format(start_low_ms=START_LOW_DHT11_MS),
+        )
+        cycles = _driven_low_cycles(hex_text, 2)
+        assert cycles is not None, "the line was never driven low"
+        measured_ms = cycles * CYCLE_NS / 1_000_000
+        assert measured_ms == pytest.approx(START_LOW_DHT11_MS, rel=0.1), (
+            f"start pulse measured {measured_ms:.2f} ms, asked for "
+            f"{START_LOW_DHT11_MS} ms"
         )
