@@ -69,7 +69,16 @@ jobs:
             exit 0
           fi
           uv pip install --system --prerelease=allow -e "$GITHUB_WORKSPACE"
-          for example in src/pymcu_lib_dht/examples/*/; do
+          # An empty glob is the failure this step is here to catch: the
+          # examples moved out of the package and this loop kept pointing at
+          # where they used to be, so it walked nothing and passed.
+          shopt -s nullglob
+          examples=(examples/*/)
+          if [ ${#examples[@]} -eq 0 ]; then
+            echo "no examples under examples/ -- this path is stale" >&2
+            exit 1
+          fi
+          for example in "${examples[@]}"; do
             echo "::group::$example"
             (cd "$example" && pymcu build)
             echo "::endgroup::"
