@@ -45,8 +45,6 @@ class DHT11:
             self.failed = 1
             return
         self.failed = 0
-        humidity: uint16
-        temperature: int16
         humidity, temperature = decode_dht11(frame)
         self._humidity = humidity
         self._temperature = temperature
@@ -77,8 +75,6 @@ class DHT22:
             self.failed = 1
             return
         self.failed = 0
-        humidity: uint16
-        temperature: int16
         humidity, temperature = decode_dht22(frame)
         self._humidity = humidity
         self._temperature = temperature
