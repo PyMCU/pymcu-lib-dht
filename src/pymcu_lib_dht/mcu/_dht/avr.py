@@ -9,7 +9,7 @@ from pymcu.types import uint8, uint16, uint32, inline
 from pymcu.chips.atmega328p import DDRD, PORTD, PIND
 from pymcu.time import delay_ms, delay_us
 
-FRAME_ERROR: uint32 = 0xFFFFFFFF
+from _dht.core import FRAME_ERROR
 
 # Counts, not microseconds: see _pd_byte.
 HIGH_COUNT_THRESHOLD: uint8 = 64
