@@ -13,14 +13,16 @@ exactly that class of bug for months.
 So the numbers are measured rather than argued about: each probe below is
 compiled for real and stepped one cycle at a time on the emulator.
 
-Three things are checked, each of which fails silently on hardware:
+Four things are checked, each of which fails silently on hardware:
 
   * the counting loop, converted into what a real sensor would produce, has
     to land clear of the threshold on both sides;
   * the wait for an edge has to outlast the 80 us the sensor can spend on one
     level, or no reading ever completes;
   * the start pulse has to match the model being addressed -- 18 ms for the
-    DHT11, ~1 ms for the DHT22, and the two must not collapse into one value.
+    DHT11, ~1 ms for the DHT22, and the two must not collapse into one value;
+  * a firmware's own module-level globals must not reach into the driver and
+    change either of those, whatever it calls them.
 
 Skipped when avr8sharp or a compiler is missing, which keeps `pytest` useful
 on a machine with neither. A probe that does not *compile* is a failure, not
@@ -32,7 +34,7 @@ from pathlib import Path
 
 import pytest
 
-from _probe import build as _build
+from _probe import PORT_B, PORT_D, build as _build, require_parameter_binding
 
 CYCLE_NS = 62.5                 # 16 MHz
 
@@ -129,30 +131,19 @@ def main():
         pass
 """
 
-# The same probe, plus one global in the firmware that happens to share a name
-# with a parameter inside the driver. See the xfail below for what that does.
+# The same probe, and a firmware built to collide with the driver on every
+# name it uses internally: `start_low_ms`, `bit` and `mask` are parameters of
+# the three functions here that are not @inline, and the rest are locals. Up to
+# 0.1.0a9 the globals won -- `start_low_ms = 250` stretched the start pulse to
+# 250 ms, and `bit = 7` built the mask for PD7, so the driver bit-banged a pin
+# the firmware never named and PD2 never moved at all.
 SHADOWED_START_PROBE = """\
-from pymcu.types import uint16, uint32, asm
+from pymcu.types import uint8, uint16, uint32, asm
 from _dht.avr import dht_read
 
 start_low_ms: uint16 = 250
-
-
-def main():
-    asm("CLI")
-    frame: uint32 = dht_read("PD2", {start_low_ms})
-    asm("SEI")
-    while True:
-        pass
-"""
-
-# And again with globals named after the driver's *locals* rather than its
-# parameters, which is the half that has to keep working -- it is what makes
-# the list of names in the README short enough to be worth printing.
-SHADOWED_LOCALS_PROBE = """\
-from pymcu.types import uint8, uint32, asm
-from _dht.avr import dht_read
-
+bit: uint8 = 7
+mask: uint8 = 0x80
 count: uint8 = 99
 chksum: uint8 = 5
 expected: uint8 = 4
@@ -167,8 +158,6 @@ def main():
     while True:
         pass
 """
-
-PORT_B, PORT_D = 0, 2
 
 
 def _simulate(hex_text: str):
@@ -304,72 +293,35 @@ class TestStartPulse:
             f"asked for {requested_ms} ms"
         )
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="compiler: a module-level global still takes over a parameter of "
-               "a plain (non-@inline) function, so a firmware that happens to "
-               "define `start_low_ms` silently changes the start pulse this "
-               "driver asks for. The @inline half of this was fixed in "
-               "0.1.0a10; `_pd_read` is not @inline",
-    )
-    def test_a_global_of_the_users_does_not_take_over_the_start_pulse(
+    def test_the_firmwares_own_globals_do_not_reach_into_the_driver(
         self, tmp_path_factory, emulator
     ):
         """
-        Nothing in the firmware below refers to the driver's parameter.
+        A firmware may use any name it likes at module level.
 
-        It defines a global called `start_low_ms` and asks for an 18 ms start,
-        and the line is held low for 250.
+        The probe collides on every name this driver uses internally and still
+        has to produce an 18 ms pulse on PD2. Two of those collisions used to
+        be silent miscompiles: `start_low_ms = 250` stretched the pulse to 250
+        ms, and `bit = 7` sent the driver to PD7, so the sensor the firmware
+        wired was never addressed and this measurement found no pulse at all.
+        Both were the same compiler bug, fixed for @inline parameters and then
+        for plain ones in 0.1.0a10.
 
-        Only one shape does this, and it is worth being exact about which. A
-        parameter of a plain `def` loses to a module global of the same name; a
-        parameter of an `@inline` def does not, since 0.1.0a10; and a *local*
-        of either never did. So the reach into this driver is the parameters of
-        the three functions that are not `@inline` -- `mask` in `_pd_byte` and
-        `_pd_high_count`, and `bit` and `start_low_ms` in `_pd_read`. A global
-        named `count`, `chksum` or `expected` is harmless, because those are
-        locals; measured, not reasoned about.
-
-        `bit` is the worse one and does not show up here: a global `bit = 7`
-        makes `_pd_read` build its mask for PD7, so the driver bit-bangs a pin
-        the user never named and PD2 stays idle.
-
-        It is a compiler bug, not something to route around by renaming -- a
-        library cannot pick names nobody will ever use. Marked strict, so it
-        fails the day the compiler stops doing this and these notes have to
-        come out.
+        It stays as a test rather than going away with the bug: a library's
+        parameter names are ordinary words, and this is the property that lets
+        it keep using them.
         """
+        require_parameter_binding(tmp_path_factory)
         hex_text = _build(
             tmp_path_factory,
             "start_shadowed",
             SHADOWED_START_PROBE.format(start_low_ms=START_LOW_DHT11_MS),
         )
         cycles = _driven_low_cycles(hex_text, 2)
-        assert cycles is not None, "the line was never driven low"
-        measured_ms = cycles * CYCLE_NS / 1_000_000
-        assert measured_ms == pytest.approx(START_LOW_DHT11_MS, rel=0.1), (
-            f"start pulse measured {measured_ms:.2f} ms, asked for "
-            f"{START_LOW_DHT11_MS} ms"
+        assert cycles is not None, (
+            "PD2 was never driven low -- a global took over the pin the driver "
+            "was told to use"
         )
-
-    def test_a_global_named_after_one_of_the_drivers_locals_is_harmless(
-        self, tmp_path_factory, emulator
-    ):
-        """
-        The other side of the line the xfail above draws.
-
-        `count`, `chksum`, `expected`, `timeout` and `result` are locals inside
-        the driver, not parameters, and a firmware is free to use those names.
-        This is what keeps the warning in the README down to three names; if it
-        ever stops holding, that list is wrong and this goes red.
-        """
-        hex_text = _build(
-            tmp_path_factory,
-            "start_locals",
-            SHADOWED_LOCALS_PROBE.format(start_low_ms=START_LOW_DHT11_MS),
-        )
-        cycles = _driven_low_cycles(hex_text, 2)
-        assert cycles is not None, "the line was never driven low"
         measured_ms = cycles * CYCLE_NS / 1_000_000
         assert measured_ms == pytest.approx(START_LOW_DHT11_MS, rel=0.1), (
             f"start pulse measured {measured_ms:.2f} ms, asked for "

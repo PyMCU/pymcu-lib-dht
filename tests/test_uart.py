@@ -23,14 +23,12 @@ from pathlib import Path
 
 import pytest
 
-from _probe import build
+from _probe import build, transcript
 
 EXAMPLE = (
     Path(__file__).resolve().parents[1]
     / "examples" / "uart-monitor" / "src" / "main.py"
 )
-
-PORT_D = 2
 
 # The same three prints the example uses, fed from a table instead of a
 # sensor. Reading a real DHT22 needs a real DHT22; the formatting does not.
@@ -71,20 +69,8 @@ def emulator():
     pytest.importorskip("avr8sharp", reason="needs the emulator")
 
 
-def _transcript(hex_text: str, until: str, max_ms: float = 5000) -> str:
-    from avr8sharp import Simulation
-
-    sim = Simulation.create().with_frequency(16_000_000).with_hex(hex_text)
-    # PD2 is the data line. An unregistered port answers `IN PINx` with zero,
-    # which is a different failure from the open line this is meant to be.
-    sim.add_gpio(PORT_D)
-    serial = sim.add_usart0()
-    sim.run_until_serial(serial, until, max_ms=max_ms)
-    return serial.text
-
-
 def test_a_reading_is_formatted_as_tenths_with_its_sign(tmp_path_factory, emulator):
-    text = _transcript(build(tmp_path_factory, "format", FORMAT_PROBE), "done")
+    text = transcript(build(tmp_path_factory, "format", FORMAT_PROBE), "done")
     assert text.splitlines()[:4] == EXPECTED
 
 
@@ -92,5 +78,5 @@ def test_the_example_says_what_it_documents_when_no_sensor_answers(
     tmp_path_factory, emulator
 ):
     hex_text = build(tmp_path_factory, "monitor", EXAMPLE.read_text())
-    lines = _transcript(hex_text, "read error").splitlines()
+    lines = transcript(hex_text, "read error").splitlines()
     assert lines[:2] == ["DHT22 ready", "read error"]

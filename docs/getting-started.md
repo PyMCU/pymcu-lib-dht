@@ -85,28 +85,20 @@ properties, reading either one triggers a fresh measurement, and both return `fl
 the one place in this library that does, because matching `adafruit_dht`'s real
 signature is the entire point of this module.
 
-## Three names to avoid at module level
+## Naming things in your own firmware
 
-Until the compiler is fixed, a module-level global in your firmware whose name
-matches a parameter of a plain (non-`@inline`) function inside a library silently
-wins over the parameter. For this driver the exposed names are exactly three:
+Nothing to avoid: a module-level global in your firmware may share a name with one
+of the driver's parameters (`start_low_ms`, `bit`, `mask`) and the driver still gets
+its own arguments.
 
-| Global you declare | What it does to the driver |
-|---|---|
-| `start_low_ms` | Sets the start pulse. `start_low_ms = 250` holds the line low for 250 ms instead of the 18 ms a DHT11 needs. |
-| `bit` | Chooses the pin. `bit = 7` makes the driver bit-bang PD7 no matter which pin you passed, so the sensor you wired is never addressed. |
-| `mask` | Same, one level down, in the byte and pulse-counting loops. |
-
-Everything else is safe, including the driver's own locals — a global called
-`count`, `chksum`, `expected`, `timeout` or `result` changes nothing, and neither
-does a local of yours by any name. Both halves of that are measured on the emulator
-in `tests/test_timing.py`, not reasoned about.
-
-This is a compiler bug rather than something the library can protect itself from —
-no set of parameter names is safe from every firmware. The `@inline` half of it was
-fixed in `pymcu-compiler` 0.1.0a10; the plain-function half above is still open, and
-is pinned as a strict xfail so that it fails the day it is fixed and this section
-has to come out.
+That is worth stating because it was not true before `pymcu-compiler` 0.1.0a10, and
+the failures were silent: a global `start_low_ms = 250` held the start pulse for
+250 ms instead of the 18 ms a DHT11 needs, and a global `bit = 7` sent the driver to
+PD7 whatever pin you passed, so the sensor you wired was never addressed. Both are
+fixed, and `tests/test_timing.py` compiles a firmware that collides on every name
+this driver uses and measures the pulse on the emulator, so the property is checked
+rather than assumed. On an older compiler that test skips itself with a reason
+instead of failing.
 
 ## Examples
 

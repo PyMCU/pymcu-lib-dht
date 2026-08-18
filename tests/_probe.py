@@ -19,6 +19,8 @@ from pathlib import Path
 
 import pytest
 
+PORT_B, PORT_D = 0, 2
+
 PROJECT = """\
 [project]
 name = "dht-probe"
@@ -30,6 +32,29 @@ target = "atmega328p"
 frequency = 16000000
 sources = "src"
 entry = "main.py"
+"""
+
+# Twelve lines that say whether this compiler binds a function's parameters at
+# all. Up to 0.1.0a9 a module-level global won over a parameter of the same
+# name, and `doubled(3)` returned 200 -- which no library can be written
+# against, since it means a firmware picks what its arguments are by choosing
+# names. Fixed in 0.1.0a10, in two halves: @inline expansions first, plain defs
+# after. Nothing in this library is asserted on a compiler that fails it.
+PARAMETER_BINDING_PROBE = """\
+from pymcu.types import uint16
+
+factor: uint16 = 100
+
+
+def doubled(factor: uint16) -> uint16:
+    return factor * 2
+
+
+def main():
+    print(doubled(3))
+    print("done")
+    while True:
+        pass
 """
 
 
@@ -69,3 +94,44 @@ def build(tmp_path_factory, name: str, source: str) -> str:
     if not firmware.exists():
         pytest.fail(f"no firmware.hex produced for {name}")
     return firmware.read_text()
+
+
+def transcript(hex_text: str, until: str, max_ms: float = 5000) -> str:
+    """Run *hex_text* until it has written *until*, and return what it said."""
+    from avr8sharp import Simulation
+
+    sim = Simulation.create().with_frequency(16_000_000).with_hex(hex_text)
+    # PD2 is the DHT data line. An unregistered port answers `IN PINx` with
+    # zero, which is a different failure from the open line a probe expects.
+    sim.add_gpio(PORT_D)
+    serial = sim.add_usart0()
+    sim.run_until_serial(serial, until, max_ms=max_ms)
+    return serial.text
+
+
+def require_parameter_binding(tmp_path_factory) -> None:
+    """
+    Skip out loud on a compiler that cannot bind a parameter.
+
+    A version check would be the obvious thing and is the wrong one here: a
+    working tree's compiler reports whatever version was last released, so the
+    binary that fixed this still called itself 0.1.0a9 for a while. The
+    question is what the compiler *does*, and it takes one small build to ask.
+    """
+    global _parameter_binding
+    if _parameter_binding is None:
+        # Waited on "done" rather than on the answer: a compiler that gets this
+        # wrong prints 200, and waiting for "6" would burn the whole simulated
+        # timeout and raise instead of reporting what happened.
+        text = transcript(
+            build(tmp_path_factory, "binding", PARAMETER_BINDING_PROBE), "done")
+        _parameter_binding = text.splitlines()[0].strip() == "6"
+    if not _parameter_binding:
+        pytest.skip(
+            "this compiler lets a module-level global take over a parameter of "
+            "the same name (fixed in pymcu-compiler 0.1.0a10); no argument this "
+            "driver passes can be relied on to arrive"
+        )
+
+
+_parameter_binding: bool | None = None
